@@ -53,7 +53,7 @@ const sharedConfig = {
   },
   devtool: 'source-map',
   resolve: {
-    extensions: ['.ts', '.js'],
+    extensions: ['.tsx', '.ts', '.js'],
     mainFields: ['main', 'module'],
   },
   optimization: {

@@ -88,3 +88,202 @@ input::placeholder,
 textarea::placeholder {
   color: var(--vscode-input-placeholderForeground);
 }
+
+.notion-basic-editor {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px max(16px, 4vw) 64px;
+  color: var(--vscode-editor-foreground);
+  font-family: var(--notion-font-family, var(--vscode-font-family));
+  font-size: var(--notion-font-size, var(--vscode-font-size));
+  line-height: 1.5;
+}
+
+.notion-basic-editor *,
+.notion-basic-editor *::before,
+.notion-basic-editor *::after {
+  box-sizing: border-box;
+}
+
+.notion-basic-editor-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.notion-basic-editor-header h1 {
+  min-width: 0;
+  margin: 0;
+  font-size: 2em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.notion-basic-editor-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notion-basic-editor-add {
+  align-self: flex-start;
+  width: auto;
+  margin-top: 12px;
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+}
+
+.notion-basic-editor-block {
+  width: 100%;
+  min-width: 0;
+}
+
+.notion-basic-editor-block-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.notion-basic-editor-block-row > input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 8px 0 0;
+  accent-color: var(--vscode-checkbox-background);
+}
+
+.notion-basic-editor-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 32px;
+  margin: 0;
+  padding: 5px 6px;
+  resize: vertical;
+  line-height: 1.5;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--vscode-input-foreground);
+}
+
+.notion-basic-editor-text:hover {
+  border-color: var(--vscode-input-border, transparent);
+}
+
+.notion-basic-editor-text:focus {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-input-background);
+}
+
+.notion-basic-editor-heading-input {
+  min-height: 40px;
+  font-weight: 600;
+}
+
+.notion-basic-editor-block-heading_1 .notion-basic-editor-text {
+  font-size: 1.875em;
+}
+
+.notion-basic-editor-block-heading_2 .notion-basic-editor-text {
+  font-size: 1.5em;
+}
+
+.notion-basic-editor-block-heading_3 .notion-basic-editor-text {
+  font-size: 1.25em;
+}
+
+.notion-basic-editor-block-bulleted_list_item .notion-basic-editor-text::before,
+.notion-basic-editor-block-numbered_list_item .notion-basic-editor-text::before {
+  color: var(--vscode-descriptionForeground);
+}
+
+.notion-basic-editor-children {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 24px;
+  padding-left: 12px;
+  border-left: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+}
+
+.notion-basic-editor-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 100ms ease-in;
+}
+
+.notion-basic-editor-block-row:hover .notion-basic-editor-actions,
+.notion-basic-editor-block-row:focus-within .notion-basic-editor-actions {
+  opacity: 1;
+}
+
+.notion-basic-editor-actions button {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  color: var(--vscode-icon-foreground);
+  background: transparent;
+}
+
+.notion-basic-editor-actions button:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.notion-basic-editor-block-readonly {
+  padding: 6px 8px;
+  border-left: 2px solid var(--vscode-disabledForeground);
+  color: var(--vscode-disabledForeground);
+}
+
+.notion-basic-editor-readonly-label {
+  margin-bottom: 2px;
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.notion-basic-editor-status {
+  flex: 0 1 auto;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+
+.notion-basic-editor-status-saving {
+  color: var(--vscode-descriptionForeground);
+}
+
+.notion-basic-editor-status-saved {
+  color: var(--vscode-testing-iconPassed);
+}
+
+.notion-basic-editor-status-error,
+.notion-basic-editor-status-conflict {
+  color: var(--vscode-errorForeground);
+}
+
+@media (max-width: 640px) {
+  .notion-basic-editor {
+    padding: 20px 12px 40px;
+  }
+
+  .notion-basic-editor-header {
+    display: block;
+  }
+
+  .notion-basic-editor-status {
+    display: block;
+    margin-top: 8px;
+  }
+
+  .notion-basic-editor-children {
+    margin-left: 12px;
+    padding-left: 8px;
+  }
+}

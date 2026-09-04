@@ -20,7 +20,10 @@
     "resolveJsonModule": true
   },
   "include": [
-    "./index.tsx"
+    "./index.tsx",
+    "./basic-editor.tsx",
+    "../notion-document.ts",
+    "../webview-messages.ts"
   ],
   "exclude": [
     "node_modules"

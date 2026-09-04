@@ -20,6 +20,8 @@ export const enum CommandId {
   RefreshRecents = 'notion.recents.refresh',
   ClearRecents = 'notion.recents.clear',
   RemoveRecent = 'notion.recents.remove',
+  SetIntegrationToken = 'notion.setIntegrationToken',
+  ClearIntegrationToken = 'notion.clearIntegrationToken',
 }
 
 export const enum ViewType {

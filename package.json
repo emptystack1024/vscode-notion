@@ -3,7 +3,7 @@
   "displayName": "VSCode Notion",
   "icon": "resources/vscode-notion.png",
   "version": "2.0.2",
-  "description": "Browse Notion pages directly in Visual Studio Code.",
+  "description": "Browse public Notion pages and read or edit shared private pages directly in Visual Studio Code.",
   "categories": [
     "Other"
   ],
@@ -24,6 +24,7 @@
   "main": "./dist/extension.js",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "build": "webpack --mode production --config webpack.config.ts",
     "watch": "webpack --watch --mode development --config webpack.config.ts",
     "package-extension": "bun run build && vsce package --no-dependencies",
@@ -80,6 +81,16 @@
         "command": "notion.recents.remove",
         "title": "Remove Item",
         "icon": "$(close)"
+      },
+      {
+        "category": "Notion",
+        "command": "notion.setIntegrationToken",
+        "title": "Set Integration Token"
+      },
+      {
+        "category": "Notion",
+        "command": "notion.clearIntegrationToken",
+        "title": "Clear Integration Token"
       }
     ],
     "viewsContainers": {
@@ -180,6 +191,7 @@
     "onWebviewPanel:notion.pageView"
   ],
   "dependencies": {
+    "@notionhq/client": "5.26.0",
     "nanoid": "3",
     "notion-client": "^8.0.8",
     "notion-utils": "^8.0.8",

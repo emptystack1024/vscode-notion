@@ -11,7 +11,7 @@
 - 启用自动分步提交、Notion 文档维护和非常规修改 Agent Note，并配置项目 Notion page_id。
 
 ### Consequences
-后续 Claude Code 实例可直接按 `CLAUDE.md` 开发；项目当前没有测试或 lint 脚本。Notion 快速入门页目前为空，拟稿尚未写入，待确认后同步。
+后续 Claude Code 实例可直接按 `CLAUDE.md` 开发；项目当前没有测试或 lint 脚本。Notion 快速入门页已按确认稿同步，未进行扩展运行或构建验证。
 
 ### Alternatives considered
 None

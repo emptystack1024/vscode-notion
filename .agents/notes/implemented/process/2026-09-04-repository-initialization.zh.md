@@ -15,4 +15,4 @@ README 面向项目使用者，而 `CLAUDE.md` 需要承载协作流程、调试
 Notion 页面定位为快速入门 wiki；变更历史保留在本地 `CHANGELOG.md`，避免页面逐次累积历史。
 
 ## Consequences
-后续行为约定有单一入口，非机械的流程或架构决策可记录在 `.agents/notes/implemented/`。Notion 页面已确认可访问但当前为空，快速入门拟稿待用户确认后再写入；本次未进行扩展运行或构建验证。
+后续行为约定有单一入口，非机械的流程或架构决策可记录在 `.agents/notes/implemented/`。Notion 快速入门页已按确认稿同步；本次未进行扩展运行或构建验证。

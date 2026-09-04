@@ -24,6 +24,12 @@ export class NotionAuth implements vscode.Disposable {
     return this.secrets.get(tokenStorageKey)
   }
 
+  onDidChangeToken(listener: () => void) {
+    return this.secrets.onDidChange((event) => {
+      if (event.key === tokenStorageKey) listener()
+    })
+  }
+
   private async setToken() {
     const token = await vscode.window.showInputBox({
       prompt: 'Enter your Notion Internal Integration token.',

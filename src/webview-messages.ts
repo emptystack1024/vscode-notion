@@ -30,6 +30,7 @@ export type WebviewMessage =
   | {
       type: 'state'
       state: NotionDocument
+      resetDrafts?: boolean
     }
   | {
       type: 'save_status'

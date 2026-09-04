@@ -1,5 +1,23 @@
 # vscode-notion
 
+## 2026-09-04 — 支持私有页面读取与基础编辑
+
+### Problem
+匿名接口无法读取需要登录或明确授权的 Notion 页面，用户无法在 VS Code 中使用私有页面；公开页面路径也不能满足基础编辑需求。
+
+### Changes
+- 新增 Internal Integration token 命令，使用 SecretStorage 保存并通过官方 API 校验凭据。
+- 新增官方页面与递归块读取、分页、错误归一化、块更新、追加和归档能力。
+- 新增私有页面文档模型、消息桥和基础编辑器，支持段落、三级标题、项目符号列表、编号列表和待办块。
+- 为同一面板的刷新和写入操作增加串行队列、版本快照检查和消息/状态反馈；公开页面仍使用匿名只读渲染。
+- 新增 Bun 内置单元测试、编辑器样式、空页面新增入口、代码块只读文本展示、Unicode 安全分片、README 使用说明和 VSIX 构建前检查。
+
+### Consequences
+宿主和 Webview 类型检查、8 个 Bun 测试、生产构建和 VSIX 打包均通过；构建保留 Webview bundle 体积警告。新增配置变化时保留官方编辑草稿、刷新时清空草稿、授权替换失效时关闭私有面板、恢复失败时显示错误、并发打开去重和可安全保留文本链接/annotations 的更新路径。尚未在真实 VS Code Extension Development Host 或用户 Integration 页面上验证，且官方 API 的检查与写入之间仍属于最佳努力冲突检测，不是服务端原子事务。
+
+### Alternatives considered
+不复用浏览器 Cookie 或将官方 API 数据伪装成 `react-notion-x` 的内部 record map；两者会扩大凭据风险或破坏现有公开渲染链。
+
 ## 2026-09-04 — 修复公开 Notion 页面 403
 
 ### Problem
@@ -17,7 +35,7 @@
 已用 Node 24、Bun CLI 1.4.0 验证宿主和 Webview 类型检查、生产构建、VSIX 打包，并用新版客户端成功请求已知公开页面。构建仍有 Webview bundle 体积警告；未在真实 VS Code Extension Development Host 中运行，也未用用户目标页面复测。CI 仍固定 Bun 1.0.33，建议安装后在 CI 或目标环境再验证锁文件兼容性。
 
 ### Alternatives considered
-不增加私有页面登录流程：用户确认目标页面为公开页面；私有页面仍不在本扩展支持范围内，也不应把凭据写入 VSIX。
+不复用浏览器 Cookie 或将官方 API 数据伪装成 `react-notion-x` 的内部 record map；两者会扩大凭据风险或破坏现有公开渲染链。公开页面继续保留匿名只读路径，私有页面则通过用户配置的 Internal Integration 访问。
 
 ## 2026-09-04 — 初始化仓库协作说明
 

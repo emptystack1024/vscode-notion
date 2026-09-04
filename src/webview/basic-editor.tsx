@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react'
+import React, {useEffect, useRef, useState} from 'react'
 import {isEditableBlock, type EditableBlockType, type NotionBlock, type NotionDocument} from '../notion-document'
 import type {HostMessage} from '../webview-messages'
 
@@ -11,18 +11,43 @@ export type BasicEditorProps = {
     state: BasicEditorStatus
     message?: string
   }
+  resetDrafts?: number
 }
 
 type TextValues = Record<string, string>
 
-export function BasicEditor({document, postMessage, status}: BasicEditorProps) {
+export function BasicEditor({document, postMessage, status, resetDrafts}: BasicEditorProps) {
   const [textValues, setTextValues] = useState<TextValues>(() => getTextValues(document.blocks))
+  const dirtyTextIds = useRef(new Set<string>())
 
   useEffect(() => {
-    setTextValues(getTextValues(document.blocks))
-  }, [document])
+    const next = getTextValues(document.blocks)
+    if (resetDrafts !== undefined && resetDrafts > 0) {
+      dirtyTextIds.current.clear()
+      setTextValues(next)
+      return
+    }
+
+    setTextValues((current) => {
+      for (const id of dirtyTextIds.current) {
+        if (!(id in next)) {
+          dirtyTextIds.current.delete(id)
+        } else if (current[id] === next[id]) {
+          dirtyTextIds.current.delete(id)
+        } else if (current[id] !== undefined) {
+          next[id] = current[id]
+        }
+      }
+      return next
+    })
+  }, [document, resetDrafts])
 
   const updateText = (block: NotionBlock, text: string) => {
+    if (text === block.text) {
+      dirtyTextIds.current.delete(block.id)
+    } else {
+      dirtyTextIds.current.add(block.id)
+    }
     setTextValues((current) => ({...current, [block.id]: text}))
   }
 

@@ -31,12 +31,14 @@ function App() {
   const initialState = window.vscode.getState()
   const [state, setState] = useState(initialState)
   const [status, setStatus] = useState<{state: BasicEditorStatus; message?: string}>({state: 'idle'})
+  const [resetDrafts, setResetDrafts] = useState(0)
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<WebviewMessage>) => {
       const message = event.data
       if (message.type === 'state' && state.source === 'official') {
         setState({id: state.id, title: message.state.title, source: 'official', data: message.state})
+        if (message.resetDrafts) setResetDrafts((count) => count + 1)
       } else if (message.type === 'save_status') {
         setStatus({state: message.status, ...(message.message ? {message: message.message} : {})})
       } else if (message.type === 'error') {
@@ -50,7 +52,7 @@ function App() {
   }, [state.source, state.id])
 
   if (state.source === 'official') {
-    return <BasicEditor document={state.data} postMessage={(message) => window.vscode.postMessage(message)} status={status} />
+    return <BasicEditor document={state.data} postMessage={(message) => window.vscode.postMessage(message)} status={status} resetDrafts={resetDrafts} />
   }
 
   return <PublicPage state={state} />

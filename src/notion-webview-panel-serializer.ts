@@ -4,9 +4,10 @@ import {InjectContext, Injectable} from 'vedk'
 import * as vscode from 'vscode'
 import {CommandId, ConfigId, ViewType, configurationPrefix, trustedSources, untitledPageTitle} from './constants'
 import {NotionApiClient, type PublicPageData} from './notion-api-client'
+import {NotionAuth} from './notion-auth'
 import {NotionOfficialApi, type EditableBlockType} from './notion-official-api'
 import {adaptOfficialPage} from './notion-block-adapter'
-import {plainTextToRichText, getDocumentVersion, type NotionBlock, type NotionDocument} from './notion-document'
+import {plainTextToRichText, updateRichText, getDocumentVersion, type NotionBlock, type NotionDocument} from './notion-document'
 import {parseHostMessage, type HostMessage, type WebviewMessage} from './webview-messages'
 import {RecentsStateProvider} from './recents'
 
@@ -37,8 +38,8 @@ class CachedNotionWebview implements vscode.Disposable {
   dispose(disposePanel = true) {
     if (this.disposed) return
     this.disposed = true
-    this.extraDisposables.dispose()
     if (disposePanel) this.webviewPanel.dispose()
+    this.extraDisposables.dispose()
   }
 
   enqueue(task: () => Promise<void>) {
@@ -59,15 +60,21 @@ class CachedNotionWebview implements vscode.Disposable {
 @Injectable()
 export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializer, vscode.Disposable {
   private readonly cache = new Map<string, CachedNotionWebview>()
+  private readonly pendingPages = new Map<string, Promise<void>>()
   private readonly disposable: vscode.Disposable
 
   constructor(
     @InjectContext() private readonly context: vscode.ExtensionContext,
     private readonly notionApi: NotionApiClient,
+    private readonly notionAuth: NotionAuth,
     private readonly notionOfficialApi: NotionOfficialApi,
     private readonly recentsState: RecentsStateProvider,
   ) {
+    const tokenChanged = this.notionAuth.onDidChangeToken(() => {
+      void this.handleTokenChange()
+    })
     this.disposable = vscode.Disposable.from(
+      tokenChanged,
       vscode.commands.registerCommand(CommandId.RefreshPage, this.refreshActivePage, this),
       vscode.window.registerWebviewPanelSerializer(ViewType.NotionPageView, this),
       vscode.workspace.onDidChangeConfiguration(async (event) => {
@@ -80,6 +87,7 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
     this.disposable.dispose()
     for (const cache of this.cache.values()) cache.dispose()
     this.cache.clear()
+    this.pendingPages.clear()
   }
 
   async createOrShowPage(id: string) {
@@ -90,6 +98,24 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
       return
     }
 
+    const pending = this.pendingPages.get(id)
+    if (pending) {
+      await pending
+      const loaded = this.cache.get(id)
+      if (loaded) loaded.reveal()
+      return
+    }
+
+    const creation = this.createPage(id)
+    this.pendingPages.set(id, creation)
+    try {
+      await creation
+    } finally {
+      if (this.pendingPages.get(id) === creation) this.pendingPages.delete(id)
+    }
+  }
+
+  private async createPage(id: string) {
     const state = await this.fetchDataAndGetPageState(id)
     const webviewPanel = vscode.window.createWebviewPanel(
       ViewType.NotionPageView,
@@ -107,16 +133,44 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
   }
 
   async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state?: unknown) {
-    const normalizedState = normalizeWebviewState(state)
+    let normalizedState = normalizeWebviewState(state)
     if (!normalizedState) return
+    const restoredPageId = normalizedState.id
 
-    let notionPage!: CachedNotionWebview
+    let disposed = false
+    let registered = false
     const panelDisposed = webviewPanel.onDidDispose(() => {
-      const cached = this.cache.get(normalizedState.id)
+      disposed = true
+      if (!registered) return
+      const cached = this.cache.get(restoredPageId)
       if (cached?.webviewPanel !== webviewPanel) return
       cached.dispose(false)
-      this.cache.delete(normalizedState.id)
+      this.cache.delete(restoredPageId)
     }, this)
+
+    if (normalizedState.source === 'official') {
+      try {
+        const currentState = await this.fetchDataAndGetPageState(normalizedState.id)
+        if (currentState.source !== 'official') {
+          webviewPanel.dispose()
+          panelDisposed.dispose()
+          return
+        }
+        normalizedState = currentState
+      } catch (error) {
+        webviewPanel.title = normalizedState.title
+        webviewPanel.webview.html = `<html><body><h1>Unable to restore Notion page</h1><p>${escapeHtml(error instanceof Error ? error.message : 'Unknown error')}</p></body></html>`
+        panelDisposed.dispose()
+        return
+      }
+    }
+
+    if (disposed) {
+      panelDisposed.dispose()
+      return
+    }
+
+    let notionPage!: CachedNotionWebview
     const messages = webviewPanel.webview.onDidReceiveMessage((value: unknown) => {
       void notionPage.enqueue(() => this.handleMessage(notionPage, value))
     }, this)
@@ -124,19 +178,64 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
 
     this.renderWebview(notionPage.webviewPanel, normalizedState)
     this.cache.set(normalizedState.id, notionPage)
+    registered = true
+  }
+
+  private async handleTokenChange() {
+    const token = await this.notionAuth.getToken()
+    if (!token) {
+      for (const [id, cache] of this.cache) {
+        if (cache.state.source === 'official') {
+          cache.dispose()
+          this.cache.delete(id)
+        }
+      }
+      return
+    }
+
+    for (const [id, cache] of [...this.cache]) {
+      if (cache.isDisposed) continue
+      try {
+        await cache.enqueue(async () => {
+          if (cache.isDisposed) return
+          const previousSource = cache.state.source
+          const state = await this.fetchDataAndGetPageState(cache.state.id)
+          if (previousSource === 'official' && state.source !== 'official') {
+            cache.dispose()
+            if (this.cache.get(id) === cache) this.cache.delete(id)
+            return
+          }
+          cache.state = state
+          if (previousSource === 'official' && state.source === 'official') {
+            await this.postMessage(cache, {type: 'state', state: state.data, resetDrafts: true})
+          } else {
+            this.renderWebview(cache.webviewPanel, state)
+          }
+        })
+      } catch (error) {
+        if (cache.state.source === 'official') {
+          cache.dispose()
+          if (this.cache.get(id) === cache) this.cache.delete(id)
+        } else {
+          await this.reportFailure(cache, error, 'Unable to reload the page after updating the integration token.')
+        }
+      }
+    }
   }
 
   private async refreshActivePage() {
     for (const cache of this.cache.values()) {
       if (!cache.webviewPanel.active) continue
       if (cache.isDisposed) return
-      await cache.enqueue(() => this.reloadPage(cache))
+      await cache.enqueue(() => this.reloadPage(cache, true))
       return
     }
   }
 
   private async rerenderCachedWebviews() {
-    for (const cache of this.cache.values()) this.renderWebview(cache.webviewPanel, cache.state)
+    for (const cache of this.cache.values()) {
+      if (cache.state.source === 'public') this.renderWebview(cache.webviewPanel, cache.state)
+    }
   }
 
   private async fetchDataAndGetPageState(id: string): Promise<NotionWebviewState> {
@@ -169,7 +268,7 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
     }
     if (message.type === 'refresh') {
       try {
-        await this.reloadPage(cache)
+        await this.reloadPage(cache, true)
       } catch (error) {
         await this.reportFailure(cache, error, 'Unable to refresh the page.')
       }
@@ -188,10 +287,12 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
       if (message.type === 'update_block') {
         const block = findBlock(cache.state.data.blocks, message.blockId)
         if (!block || !isEditableType(block.type)) throw new Error('The selected block cannot be edited.')
+        const richText = updateRichText(block.richText, message.text)
+        if (!richText) throw new Error('This block contains inline content that the basic editor cannot preserve.')
         await this.notionOfficialApi.updateBlock({
           blockId: block.id,
           type: block.type,
-          richText: plainTextToRichText(message.text),
+          richText,
         })
       } else if (message.type === 'toggle_block') {
         const block = findBlock(cache.state.data.blocks, message.blockId)
@@ -215,11 +316,19 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
       } else if (message.type === 'archive_block') {
         await this.notionOfficialApi.archiveBlock(message.blockId)
       }
+    } catch (error) {
+      await this.reportFailure(cache, error)
+      return
+    }
 
+    try {
       await this.reloadPage(cache)
       await this.postMessage(cache, {type: 'save_status', status: 'saved'})
     } catch (error) {
-      await this.reportFailure(cache, error)
+      const refreshMessage = error instanceof Error
+        ? `Changes were saved, but the page could not be refreshed: ${error.message}`
+        : 'Changes were saved, but the page could not be refreshed. Refresh before making another change.'
+      await this.postMessage(cache, {type: 'save_status', status: 'saved', message: refreshMessage})
     }
   }
 
@@ -262,10 +371,15 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
     if (message.type === 'toggle_block' && block.type !== 'to_do') throw new Error('The selected block is not a to-do block.')
   }
 
-  private async reloadPage(cache: CachedNotionWebview) {
+  private async reloadPage(cache: CachedNotionWebview, resetDrafts = false) {
+    const previousSource = cache.state.source
     const state = await this.fetchDataAndGetPageState(cache.state.id)
     cache.state = state
-    this.renderWebview(cache.webviewPanel, state)
+    if (previousSource === 'official' && state.source === 'official') {
+      await this.postMessage(cache, {type: 'state', state: state.data, ...(resetDrafts ? {resetDrafts: true} : {})})
+    } else {
+      this.renderWebview(cache.webviewPanel, state)
+    }
   }
 
   private async postMessage(cache: CachedNotionWebview, message: WebviewMessage) {
@@ -309,6 +423,12 @@ export class NotionWebviewPanelSerializer implements vscode.WebviewPanelSerializ
 </body>
 </html>`
   }
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) =>
+    ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character] ?? character),
+  )
 }
 
 function serializeForScript(value: unknown) {
@@ -377,7 +497,9 @@ function isRecord(value: unknown): value is StateRecord {
 class ConflictError extends Error {}
 
 function isEditableType(type: NotionBlock['type']): type is EditableBlockType {
-  return type !== 'unsupported'
+  return type === 'paragraph' || type === 'heading_1' || type === 'heading_2' ||
+    type === 'heading_3' || type === 'bulleted_list_item' ||
+    type === 'numbered_list_item' || type === 'to_do'
 }
 
 function findBlock(blocks: NotionBlock[], id: string): NotionBlock | undefined {

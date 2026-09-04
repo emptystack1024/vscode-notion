@@ -1,6 +1,7 @@
 resources/custom-icons
 scripts/
 src/
+test/
 .agents/
 .changeset/
 .claude/

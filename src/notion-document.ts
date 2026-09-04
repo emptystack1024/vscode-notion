@@ -23,6 +23,11 @@ export type NotionBlock = {
   children: NotionBlock[]
 }
 
+type TextRichTextItem = RichTextItemRequest & {
+  type: 'text'
+  text: {content: string; link?: {url: string} | null}
+}
+
 export function isEditableBlock(block: NotionBlock): block is NotionBlock & {type: EditableBlockType} {
   return block.type !== 'unsupported' && !block.readOnly
 }
@@ -40,6 +45,66 @@ export function plainTextToRichText(content: string): RichTextItemRequest[] {
     richText.push({type: 'text', text: {content: characters.slice(offset, offset + 2000).join('')}})
   }
   return richText
+}
+
+type TextCharacter = {
+  character: string
+  template: TextRichTextItem
+}
+
+export function updateRichText(
+  richText: RichTextItemRequest[],
+  content: string,
+): RichTextItemRequest[] | undefined {
+  if (richText.length === 0) return plainTextToRichText(content)
+
+  const original: TextCharacter[] = []
+  for (const item of richText) {
+    if ((item as {type?: unknown}).type !== 'text') return undefined
+    const textItem = item as TextRichTextItem
+    for (const character of Array.from(textItem.text.content)) {
+      original.push({character, template: textItem})
+    }
+  }
+
+  const next = Array.from(content)
+  let prefix = 0
+  while (prefix < original.length && prefix < next.length && original[prefix]?.character === next[prefix]) prefix++
+
+  let suffix = 0
+  while (
+    suffix < original.length - prefix &&
+    suffix < next.length - prefix &&
+    original[original.length - 1 - suffix]?.character === next[next.length - 1 - suffix]
+  ) suffix++
+
+  const characters: TextCharacter[] = original.slice(0, prefix)
+  const template = original[prefix - 1]?.template ?? original[prefix]?.template
+  for (const character of next.slice(prefix, next.length - suffix)) {
+    if (template) characters.push({character, template})
+    else characters.push({character, template: richText[0] as TextRichTextItem})
+  }
+  characters.push(...original.slice(original.length - suffix))
+
+  const result: RichTextItemRequest[] = []
+  for (const entry of characters) {
+    const previous = result[result.length - 1]
+    if (isTextRichTextItem(previous) && sameTextStyle(previous, entry.template)) {
+      previous.text.content += entry.character
+    } else {
+      result.push({...entry.template, text: {...entry.template.text, content: entry.character}})
+    }
+  }
+  return result
+}
+
+function isTextRichTextItem(value: RichTextItemRequest | undefined): value is TextRichTextItem {
+  return value !== undefined && (value as {type?: unknown}).type === 'text'
+}
+
+function sameTextStyle(left: TextRichTextItem, right: TextRichTextItem) {
+  return JSON.stringify({...left, text: {...left.text, content: ''}}) ===
+    JSON.stringify({...right, text: {...right.text, content: ''}})
 }
 
 export function getDocumentVersion(document: NotionDocument): string {

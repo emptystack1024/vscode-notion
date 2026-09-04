@@ -9,6 +9,7 @@
       "dom"
     ],
     "jsx": "react",
+    "types": [],
     "sourceMap": true,
     "rootDir": "..",
     "noUnusedLocals": true,

@@ -6,7 +6,7 @@ export const configurationPrefix = 'notion'
 export const enum ConfigId {
   FontFamily = 'fontFamily',
   FontSize = 'fontSize',
-  AllowEmbeds = 'allowEmbeds',
+  AllowEmbeds = 'allowedEmbeds',
 }
 
 export const enum ContextId {

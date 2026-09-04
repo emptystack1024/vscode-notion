@@ -2,7 +2,7 @@
   "name": "vscode-notion",
   "displayName": "VSCode Notion",
   "icon": "resources/vscode-notion.png",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Browse Notion pages directly in Visual Studio Code.",
   "categories": [
     "Other"
@@ -24,10 +24,10 @@
   "main": "./dist/extension.js",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "NODE_ENV=production webpack --mode production --config webpack.config.ts",
-    "watch": "NODE_ENV=development webpack --watch --mode development --config webpack.config.ts",
-    "package-extension": "vsce package --no-dependencies",
-    "publish-extension": "vsce publish --no-dependencies"
+    "build": "webpack --mode production --config webpack.config.ts",
+    "watch": "webpack --watch --mode development --config webpack.config.ts",
+    "package-extension": "bun run build && vsce package --no-dependencies",
+    "publish-extension": "bun run build && vsce publish --no-dependencies"
   },
   "contributes": {
     "configuration": {
@@ -181,11 +181,11 @@
   ],
   "dependencies": {
     "nanoid": "3",
-    "notion-client": "^6.16.0",
-    "notion-utils": "^6.16.0",
+    "notion-client": "^8.0.8",
+    "notion-utils": "^8.0.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-notion-x": "^6.16.0",
+    "react-notion-x": "^8.0.8",
     "reflect-metadata": "^0.2.1",
     "vedk": "^0.1.2"
   },
@@ -196,16 +196,17 @@
     "@vscode/vsce": "^3.0.0",
     "dotenv-webpack": "^8.0.1",
     "swc-loader": "^0.2.6",
+    "terser-webpack-plugin": "^5.3.10",
     "webpack": "^5.90.3",
     "webpack-cli": "^5.1.4",
-    "@types/bun": "^e.0.10",
+    "@types/bun": "^1.0.10",
     "@types/dotenv-webpack": "^7.0.7",
     "@types/node": "^18.19.20",
     "@types/react": "^18.3.4",
     "@types/react-dom": "^18.3.0",
     "@types/vscode": "^1.87.0",
     "fantasticon": "^2.0.0",
-    "notion-types": "^6.16.0",
+    "notion-types": "^8.0.8",
     "typescript": "^5.5.4"
   },
   "engines": {
